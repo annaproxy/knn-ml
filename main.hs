@@ -1,13 +1,39 @@
-import Data.Text hiding (take, map, zipWith, foldr)
+import Data.Text hiding (take, map, zipWith, foldr, minimum, zip, length)
+import Data.List 
 
 main = do 
-    x <- readFile "train.txt"
-    print( take 5 (makePeople x))
+    k     <- getLine
+    train <- readFile "train.txt"
+    test  <- readFile "test.txt"
+    return ( classify (read k :: Int) (makePeople train) (makePeople test) )
     -- return (makePeople x)
 
+classify :: Int -> [Person] -> [Person] -> Double
+classify k train test = fromIntegral(classifyAll k train test ) -- / fromIntegral(length test)
 
-calculateClosest :: Person -> [Person] -> Int
-calculateClosest p1 p2 = 0 -- "to do, i have to sleep"
+{-- 
+    K -> TrainData -> TestData -> Amount Correct
+--}
+classifyAll :: Int -> [Person] -> [Person] -> Int 
+classifyAll _ _ []         = 0
+classifyAll k train (x:xs) = correct + classifyAll k train xs
+    where
+        correct = if (nearest x train k == y x) then 1 else 0 
+
+
+nearest :: Person -> [Person] -> Int -> Int
+nearest p1 pList k = if (k==1) then m else vote (map snd sorted) 0 
+    where
+        distances        = map (\x -> computeDistance p1 x) pList
+        labels           = map y pList
+        people           = zip distances labels -- ugly sort, especially for low number of neighbors.
+        sorted           = take k ( sortBy ( \(a,_) (b,_) -> compare a b ) people )
+        m                = snd $ minimumBy ( \(a,_) (b,_) -> compare a b  ) people
+        -- Compensating for ugly sort with nice "lazy" vote function
+        vote []     _    = 0
+        vote (x:xs) amt1 = if ( check <= fromIntegral amt1) then 1 else vote xs (amt1 + x) 
+            where
+                check = (fromIntegral k) / (fromIntegral 2)
 
 {-- Computes naive distance between two people --}
 computeDistance :: Person -> Person -> Double
@@ -17,6 +43,8 @@ computeDistance p1 p2 =  sqrt ( d1 + d2 + d3 )
         d2 = fromIntegral $ countStuff xBinary
         d3 = fromIntegral $ countStuff xCategorical
         countStuff which = foldr (+) 0 (zipWith (\x y -> (x - y) * (x - y )) (which p1) (which p2) )
+
+--computeDistance2 :: Person -> Person -> Double
 
 {-- Breaks textfile into lines and creates People --}
 makePeople :: String -> [Person]
